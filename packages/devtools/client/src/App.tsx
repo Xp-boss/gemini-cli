@@ -295,7 +295,7 @@ export default function App() {
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', height: '100%' }}>
+        <div role="tablist" style={{ display: 'flex', height: '100%' }}>
           <TabButton
             active={activeTab === 'console'}
             onClick={() => setActiveTab('console')}
@@ -404,6 +404,7 @@ export default function App() {
             </span>
             {sessions.length > 0 ? (
               <select
+                aria-label="Select session"
                 value={selectedSessionId || ''}
                 onChange={(e) => setSelectedSessionId(e.target.value)}
                 style={{
@@ -469,6 +470,8 @@ export default function App() {
 
           <button
             onClick={toggleTheme}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             style={{
               fontSize: '14px',
               padding: '2px 8px',
@@ -483,7 +486,6 @@ export default function App() {
               height: '24px',
               width: '32px',
             }}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {isDark ? '🌙' : '☀️'}
           </button>
@@ -581,7 +583,10 @@ function TabButton({
   t: ThemeColors;
 }) {
   return (
-    <div
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       style={{
         padding: '4px 16px',
@@ -590,6 +595,8 @@ function TabButton({
         fontWeight: 600,
         fontSize: '12px',
         userSelect: 'none',
+        border: 'none',
+        background: 'transparent',
         borderBottom: active
           ? `2px solid ${t.accent}`
           : '2px solid transparent',
@@ -601,7 +608,7 @@ function TabButton({
       }}
     >
       {label}
-    </div>
+    </button>
   );
 }
 
@@ -703,48 +710,38 @@ function ConsoleLogEntry({ log, t }: { log: ConsoleLog; t: ThemeColors }) {
         }}
       >
         {needsCollapse && (
-          <div
+          <button
+            type="button"
             onClick={() => setIsExpanded(!isExpanded)}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Collapse log entry' : 'Expand log entry'}
+            title={isExpanded ? 'Collapse' : 'Expand'}
             style={{
               fontSize: '12px',
-
+              padding: 0,
               color: t.text,
-
               cursor: 'pointer',
-
               fontWeight: 'bold',
-
               userSelect: 'none',
-
               width: '20px',
-
               height: '20px',
-
               display: 'flex',
-
               alignItems: 'center',
-
               justifyContent: 'center',
-
               borderRadius: '4px',
-
               border: `1px solid ${t.border}`,
-
               background: t.bgSecondary,
-
               transition: 'all 0.1s',
             }}
             onMouseOver={(e) => {
-              (e.currentTarget as HTMLDivElement).style.background = t.bgHover;
+              e.currentTarget.style.background = t.bgHover;
             }}
             onMouseOut={(e) => {
-              (e.currentTarget as HTMLDivElement).style.background =
-                t.bgSecondary;
+              e.currentTarget.style.background = t.bgSecondary;
             }}
-            title={isExpanded ? 'Collapse' : 'Expand'}
           >
             {isExpanded ? '−' : '+'}
-          </div>
+          </button>
         )}
 
         <div
@@ -1062,6 +1059,8 @@ function NetworkView({
           />
           <button
             onClick={() => setGroupByDomain(!groupByDomain)}
+            aria-label="Group by domain"
+            title="Group by Domain"
             style={{
               background: groupByDomain ? t.accent : t.bg,
               color: groupByDomain ? '#fff' : t.text,
@@ -1071,7 +1070,6 @@ function NetworkView({
               fontSize: '12px',
               padding: '0 8px',
             }}
-            title="Group by Domain"
           >
             📂
           </button>
@@ -1513,14 +1511,36 @@ function BodyView({
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        <button onClick={copyJson} style={iconBtn} title="Copy JSON">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <button
+          onClick={copyJson}
+          style={iconBtn}
+          title="Copy JSON"
+          aria-label="Copy JSON"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            aria-hidden="true"
+          >
             <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25z" />
             <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25z" />
           </svg>
         </button>
-        <button onClick={downloadJson} style={iconBtn} title="Download JSON">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <button
+          onClick={downloadJson}
+          style={iconBtn}
+          title="Download JSON"
+          aria-label="Download JSON"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            aria-hidden="true"
+          >
             <path d="M2.75 14A1.75 1.75 0 011 12.25v-2.5a.75.75 0 011.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25v-2.5a.75.75 0 011.5 0v2.5A1.75 1.75 0 0113.25 14z" />
             <path d="M7.25 7.689V2a.75.75 0 011.5 0v5.689l1.97-1.969a.749.749 0 111.06 1.06l-3.25 3.25a.749.749 0 01-1.06 0L4.22 6.78a.749.749 0 111.06-1.06z" />
           </svg>
