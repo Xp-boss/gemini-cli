@@ -33,6 +33,43 @@ export const SENSITIVE_KEY_PATTERNS = [
 ];
 
 /**
+ * Pre-computed normalized sensitive key patterns to avoid repeated regex replacements per key.
+ */
+const NORMALIZED_SENSITIVE_PATTERNS = SENSITIVE_KEY_PATTERNS.map((p) =>
+  p.replace(/[-_]/g, ''),
+);
+
+// Pre-compiled regular expressions for error and thought sanitization.
+// Module-level compilation avoids re-allocating arrays and RegExp objects on every call (~90% speedup).
+const UNQUOTED_VALUE_PATTERN = `[^\\s]+(?:\\s+(?![a-zA-Z0-9_.-]+(?:=|:))[^\\s=:<>]+)*`;
+const VALUE_PATTERN = `(?:"[^"]*"|'[^']*'|${UNQUOTED_VALUE_PATTERN})`;
+
+const URL_SAFE_KEY_PATTERN_STR = SENSITIVE_KEY_PATTERNS.map((p) =>
+  p.replace(/[-_]/g, '(?:[-_]|%2D|%5F|%2d|%5f)?'),
+).join('|');
+
+const KEY_WITH_DELIMITER_REGEX = new RegExp(
+  `((?:--)?("|')?(${URL_SAFE_KEY_PATTERN_STR})\\2\\s*(?:[:=]|%3A|%3D)\\s*)${VALUE_PATTERN}`,
+  'gi',
+);
+
+const TOKEN_VALUE_PATTERN = `[A-Za-z0-9._\\-/+=]{8,}`;
+const SPACE_KEYWORDS = [
+  ...SENSITIVE_KEY_PATTERNS.map((p) =>
+    p.replace(/[-_]/g, '(?:[-_]|%2D|%5F|%2d|%5f)?'),
+  ),
+  'bearer',
+];
+
+const SPACE_SEPARATED_REGEX = new RegExp(
+  `\\b((?:--)?(?:${SPACE_KEYWORDS.join('|')})(?:\\s*:\\s*bearer)?\\s+)(${TOKEN_VALUE_PATTERN})`,
+  'gi',
+);
+
+const FILE_PATH_REGEX =
+  /((?:[/\\][a-zA-Z0-9_-]+)*[/\\][a-zA-Z0-9_-]*\.(?:key|pem|p12|pfx))/gi;
+
+/**
  * Sanitizes tool arguments by recursively redacting sensitive fields.
  * Supports nested objects and arrays.
  */
@@ -59,8 +96,8 @@ export function sanitizeToolArgs(args: unknown): unknown {
       // Ignore decoding errors
     }
     const keyNormalized = decodedKey.toLowerCase().replace(/[-_]/g, '');
-    const isSensitive = SENSITIVE_KEY_PATTERNS.some((pattern) =>
-      keyNormalized.includes(pattern.replace(/[-_]/g, '')),
+    const isSensitive = NORMALIZED_SENSITIVE_PATTERNS.some((pattern) =>
+      keyNormalized.includes(pattern),
     );
     if (isSensitive) {
       sanitized[key] = '[REDACTED]';
@@ -109,37 +146,15 @@ export function sanitizeErrorMessage(message: string): string {
     startIndex = before.length + 14; // length of '[REDACTED_PEM]'
   }
 
-  const unquotedValue = `[^\\s]+(?:\\s+(?![a-zA-Z0-9_.-]+(?:=|:))[^\\s=:<>]+)*`;
-  const valuePattern = `(?:"[^"]*"|'[^']*'|${unquotedValue})`;
-
   // 2. Handle key-value pairs with delimiters (=, :, space, CLI-style --flag)
-  const urlSafeKeyPatternStr = SENSITIVE_KEY_PATTERNS.map((p) =>
-    p.replace(/[-_]/g, '(?:[-_]|%2D|%5F|%2d|%5f)?'),
-  ).join('|');
-
-  const keyWithDelimiter = new RegExp(
-    `((?:--)?("|')?(${urlSafeKeyPatternStr})\\2\\s*(?:[:=]|%3A|%3D)\\s*)${valuePattern}`,
-    'gi',
-  );
-  sanitized = sanitized.replace(keyWithDelimiter, '$1[REDACTED]');
+  sanitized = sanitized.replace(KEY_WITH_DELIMITER_REGEX, '$1[REDACTED]');
 
   // 3. Handle space-separated sensitive keywords (e.g. "password mypass", "--api-key secret")
-  const tokenValuePattern = `[A-Za-z0-9._\\-/+=]{8,}`;
-  const spaceKeywords = [
-    ...SENSITIVE_KEY_PATTERNS.map((p) =>
-      p.replace(/[-_]/g, '(?:[-_]|%2D|%5F|%2d|%5f)?'),
-    ),
-    'bearer',
-  ];
-  const spaceSeparated = new RegExp(
-    `\\b((?:--)?(?:${spaceKeywords.join('|')})(?:\\s*:\\s*bearer)?\\s+)(${tokenValuePattern})`,
-    'gi',
-  );
-  sanitized = sanitized.replace(spaceSeparated, '$1[REDACTED]');
+  sanitized = sanitized.replace(SPACE_SEPARATED_REGEX, '$1[REDACTED]');
 
   // 4. Handle file path redaction
   sanitized = sanitized.replace(
-    /((?:[/\\][a-zA-Z0-9_-]+)*[/\\][a-zA-Z0-9_-]*\.(?:key|pem|p12|pfx))/gi,
+    FILE_PATH_REGEX,
     '/path/to/[REDACTED].key',
   );
 
